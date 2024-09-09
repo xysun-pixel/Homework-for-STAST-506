@@ -1,0 +1,269 @@
+---
+title: "hw1"
+format: html
+---
+
+## Problem 1 - Wine data
+
+## a
+
+```{r}
+headvec <- c(
+  "class",
+  "Alcohol",
+ 	"Malic acid",
+ 	"Ash",
+	"Alcalinity of ash",  
+ 	"Magnesium",
+	"Total phenols",
+ 	"Flavanoids",
+ 	"Nonflavanoid phenols",
+ 	"Proanthocyanins",
+	"Color intensity",
+ 	"Hue",
+ 	"OD280/OD315 of diluted wines",
+ 	"Proline"
+)
+file_path <- "D:/UMICH/STAT 506/wine/wine.data"
+wine_data <- read.table(file_path, header = TRUE, sep = ",")
+if (length(headvec) == ncol(wine_data)) {
+  # 添加行名称
+  colnames(wine_data) <- headvec
+} else {
+  stop("行名称向量的长度与数据框的行数不匹配。")
+}
+```
+
+## b
+
+```{r}
+selected_rows1 <- wine_data[wine_data$class == 1, ]
+print(nrow(selected_rows1))
+selected_rows2 <- wine_data[wine_data$class == 2, ]
+print(nrow(selected_rows2))
+selected_rows3 <- wine_data[wine_data$class == 3, ]
+print(nrow(selected_rows3))
+```
+
+As is listed in "wine.name", row number of each class is 59, 71, 48, therefore the row number of "class==1" doesn't match
+
+## c
+
+```{r}
+X <- wine_data$Alcohol
+Y <- wine_data$`Color intensity`
+
+r <-  cor(X,Y)
+
+```
+
+r\>0 means Color intensity increases with Alcohol content
+
+```{r}
+X_1 <- wine_data[wine_data$class == 1, "Alcohol"]
+Y_1 <- wine_data[wine_data$class == 1, "Color intensity"]
+r_1 <- cor(X_1, Y_1)
+X_2 <- wine_data[wine_data$class == 2, "Alcohol"]
+Y_2 <- wine_data[wine_data$class == 2, "Color intensity"]
+r_2 <- cor(X_2, Y_2)
+X_3 <- wine_data[wine_data$class == 3, "Alcohol"]
+Y_3 <- wine_data[wine_data$class == 3, "Color intensity"]
+r_3 <- cor(X_3, Y_3)
+print(c(r_1,r_2,r_3))
+```
+
+Therefore Class 1 highest, Class 2 lowest.
+
+```{r}
+max_color_intensity <- max(wine_data$"Color intensity")
+max_row <- wine_data[wine_data$"Color intensity" == max_color_intensity, ]
+print(max_row$"Alcohol")
+```
+
+The wine with alcohol content of 14.34 has the highest color intensity
+
+```{r}
+rows <- nrow(wine_data)
+s = 0
+for (i in 1:rows){
+  sel_row = wine_data[i, ]
+  if (sel_row$"Proanthocyanins" > sel_row$"Ash" ){
+    s <- s+1
+  }
+}
+print(s/rows)
+```
+
+8.4% wines had a higher content of proanthocyanins compare to ash
+
+## d
+
+```{r}
+new_table <- wine_data[1, ]
+for (i in 1:ncol(wine_data)){
+  new_table[1, i] <- mean(wine_data[ , i])
+  new_table[2, i] <- mean(selected_rows1[ , i])
+  new_table[3, i] <- mean(selected_rows2[ , i])
+  new_table[4, i] <- mean(selected_rows3[ , i])
+}
+new_table$class[1] <- NaN
+print(new_table)
+```
+
+## **Problem 2 - AskAManager.org Data**
+
+## a
+
+```{r}
+file_path <- "D:/UMICH/STAT 506/AskAManager/AskAManager.csv"
+am_data <- read.table(file_path, header = TRUE, sep = ",")
+```
+
+## b
+
+```{r}
+names(am_data)
+```
+
+```{r}
+
+flitered_name = c("x", 
+                  "time",
+                  "age",
+                  "industry",
+                  "job_title",
+                  "additional_context",
+                  "salary",
+                  "compensation",
+                  "currency",
+                  "other_currency",
+                  "additional_context2",
+                  "country",
+                  "is_US_state",
+                  "city",
+                  "experience_overall",
+                  "experience_field",
+                  "education",
+                  "gender",
+                  "race")
+
+names(am_data) <- flitered_name
+```
+
+```{r}
+am_data
+```
+
+## c
+
+```{r}
+be_len <- nrow(am_data)
+am_data <- am_data[am_data$currency == 'USD', ]
+af_len <- nrow(am_data)
+be_len == af_len
+```
+
+Therefore the tablet is fixed after restriction
+
+## d
+
+```{r}
+be_len <- nrow(am_data)
+
+
+# given a list with 2 strings in each element, choose the 1st string and put them in an array
+select <- function(l){
+  first_strings <- lapply(l, function(x) x[1])
+  first_strings_array <- unlist(first_strings)
+  return(first_strings_array)
+}
+
+am_data <- am_data[select(strsplit(am_data$age, "-")) >= 18, ]
+
+af_len <- nrow(am_data)
+
+be_len == af_len
+```
+
+No change happens after the restriction
+
+# e
+
+```{r}
+lower_bound <- quantile(am_data$salary, 0.05)
+upper_bound <- quantile(am_data$salary, 0.95)
+
+am_data_trimmed <- am_data[am_data$salary >= lower_bound & am_data$salary <= upper_bound, ]
+
+am_data_trimmed
+```
+
+```{r}
+size = nrow(am_data_trimmed)
+print(size)
+```
+
+Eliminate top and bottom 5% values, the remain's size is 21138
+
+## Problem 3 **- Palindromic Numbers**
+
+## a
+
+```{r}
+isPalindromic <- function(x){
+  if (!is.numeric(x) || x != as.integer(x) || x <= 0) {
+    stop("Invalid input: The input must be a positive integer.")
+  }
+  x_str <- as.character(x)
+  rev_x_str <- paste(rev(strsplit(x_str, NULL)[[1]]), collapse = "")
+  rev_x <- as.numeric(rev_x_str)
+  is_palindrome <- (x == rev_x)
+  
+   return(list(
+    isPalindromic = is_palindrome,
+    reversed = rev_x
+  ))
+}
+```
+
+Now start testing!
+
+```{r}
+isPalindromic(12321)
+isPalindromic(12561)
+isPalindromic(-131)
+```
+
+## b
+
+```{r}
+nextPalindrome <- function(x){
+  is_palindrome_x <- isPalindromic(x)$isPalindromic
+  if (is_palindrome_x == TRUE) {
+    output <- x
+  } else {
+    output_str_c = NaN 
+    
+    x_str_c <- strsplit(as.character(x), NULL)[[1]]
+    rev_x_str_c <- rev(strsplit(as.character(x), NULL)[[1]])
+    for (i in 1:length(x_str_c)) {
+      choosen_num_charac = as.character(max(as.numeric(x_str_c[i]), rev_x_str_c[i]))
+      output_str_c[i] <- choosen_num_charac
+      output <- as.numeric(paste(output_str_c, collapse = ""))
+    }
+  }
+  return(output)
+}
+
+nextPalindrome(523758)
+```
+
+## c  
+
+```{r}
+nextPalindrome(391)
+nextPalindrome(9928)
+nextPalindrome(19272719)
+nextPalindrome(109)
+nextPalindrome(2)
+```
