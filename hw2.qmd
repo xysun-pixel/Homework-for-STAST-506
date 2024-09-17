@@ -1,0 +1,251 @@
+---
+title: "hw2"
+format: html
+editor: visual
+---
+
+## Problem 1
+
+## a
+
+v1
+
+```{r}
+dice_game <- function(num_rolls) {
+  total_winnings <- 0
+  cost_to_play <- 2 * num_rolls
+  
+  for (i in 1:num_rolls) {
+    roll <- sample(1:6, 1) 
+    if (roll == 3 || roll == 5) {
+      total_winnings <- total_winnings + (2 * roll)
+    }
+  }
+  
+  return(total_winnings - cost_to_play)
+}
+```
+
+v2
+
+```{r}
+dice_game2 <- function(num_rolls) {
+  rolls <- sample(1:6, num_rolls, replace = TRUE)   
+  winnings <- ifelse(rolls == 3 | rolls == 5, 2 * rolls, 0)  
+  total_winnings <- sum(winnings)
+  cost_to_play <- 2 * num_rolls  
+  
+  return(total_winnings - cost_to_play)
+}
+```
+
+v3
+
+```{r}
+dice_game3 <- function(num_rolls) {
+  rolls <- sample(1:6, num_rolls, replace = TRUE)
+  roll_table <- table(factor(rolls, levels = 1:6))  
+  winnings <- (roll_table["3"] * 2 * 3) + (roll_table["5"] * 2 * 5)
+  
+  cost_to_play <- 2 * num_rolls
+  
+  return(as.numeric(winnings) - cost_to_play)
+}
+```
+
+v4
+
+```{r}
+dice_game4 <- function(num_rolls) {
+
+  rolls <- sample(1:6, num_rolls, replace = TRUE)
+  winnings <- sapply(rolls, function(roll) {
+    if (roll == 3 || roll == 5) {
+      return(2 * roll)
+    } else {
+      return(0)
+    }
+  })
+  total_winnings <- sum(winnings)
+  cost_to_play <- 2 * num_rolls
+  
+
+  return(total_winnings - cost_to_play)
+}
+```
+
+## b
+
+```{r}
+dice_game(3)
+dice_game2(3)
+dice_game3(3)
+dice_game4(3)
+dice_game(3000)
+dice_game2(3000)
+dice_game3(3000)
+dice_game4(3000)
+```
+
+## c
+
+```{r}
+test_results <- function(num_rolls, seednum) {
+  
+  set.seed(seednum)  # Set the seed 
+  result_v1 <- dice_game(num_rolls)
+  set.seed(seednum)  # Set the seed 
+  result_v2 <- dice_game2(num_rolls)
+  set.seed(seednum)  # Set the seed 
+  result_v3 <- dice_game3(num_rolls)
+  set.seed(seednum)  # Set the seed 
+  result_v4 <- dice_game4(num_rolls)
+  return(c(Version1 = result_v1, Version2 = result_v2, Version3 = result_v3, Version4 = result_v4))
+}
+```
+
+```{r}
+test_results(3, seednum = 144)
+test_results(3000, seednum = 104)
+```
+
+## d
+
+Unfair!
+
+```{r}
+monte <- function(n_reps, num_rolls){
+  results <- replicate(n_reps, dice_game2(num_rolls))
+  return(mean(results))
+}
+```
+
+```{r}
+monte(10000, 3)
+monte(10000, 3)
+monte(10000, 3)
+monte(10000, 3)
+```
+
+```{r}
+monte(10000, 3000)
+monte(10000, 3000)
+monte(10000, 3000)
+monte(10000, 3000)
+```
+
+According to Law of Large Number, mean(X) \~ EX, since all experiments' results \>0, thus the game is unfair.
+
+## Problem 2
+
+## a
+
+```{r}
+cardata <- read.csv("cars.csv", header = TRUE)
+original_colnames <- colnames(cardata)
+print(original_colnames)
+new_colnames <- sub(".*\\.", "", original_colnames)
+colnames(cardata) <- new_colnames
+print(colnames(cardata))
+```
+
+## b
+
+```{r}
+type_columns <- which(colnames(cardata) == "Type")
+second_type_column_index <- type_columns[2]
+
+# 筛选第二个 "Type" 列中内容为 "Gasoline" 的行
+gasoline_rows <- cardata[cardata[, second_type_column_index] == "Gasoline", ]
+```
+
+## c
+
+```{r}
+# 选取第一列 "mpg"
+mpg_columns <- which(colnames(cardata) == "mpg")
+first_mpg_column_index <- mpg_columns[1]
+first_mpg_values <- cardata[, first_mpg_column_index]
+
+# 执行标准化操作
+mean_mpg <- mean(first_mpg_values, na.rm = TRUE)
+sd_mpg <- sd(first_mpg_values, na.rm = TRUE)
+standardized_mpg <- (first_mpg_values - mean_mpg) / sd_mpg
+
+cardata_std_mpg = cardata
+
+cardata_std_mpg[, first_mpg_column_index] <- standardized_mpg
+```
+
+## d
+
+```{r}
+model <- lm(Torque ~ mpg, data = cardata_std_mpg)
+
+# 查看模型摘要，包括估计的参数
+summary(model)
+```
+
+## e
+
+```{r}
+model <- lm(mpg ~ Torque * Horsepower, data = cardata)
+
+# 查看模型摘要，包括估计的参数
+result <- summary(model)
+result
+```
+
+```{r}
+torque_values <- seq(100, 200, length.out = 100)  
+horsepower_values <- c(100, 200, 300) 
+
+
+prediction_data <- expand.grid(Torque = torque_values, Horsepower = horsepower_values)
+
+predicted_mpg <- predict(model, newdata = prediction_data)
+prediction_data$mpg <- predicted_mpg
+```
+
+```{r}
+prediction_data
+```
+
+```{r}
+library(ggplot2)
+
+# Create interaction plot
+ggplot(prediction_data, aes(x = Torque, y = mpg, color = factor(Horsepower))) +
+  geom_line() +
+  labs(title = "Interaction between Torque and Horsepower on MPG",
+       x = "Torque",
+       y = "mpg",
+       color = "Horsepower") +
+  theme_minimal()
+```
+
+## f
+
+```{r}
+len = nrow(cardata)
+X <- matrix(NA, nrow = len, ncol = 4)
+X[ ,1] <- 1
+X[ ,2] <- cardata$Torque
+X[ ,3] <- cardata$Horsepower
+X[ ,4] <- cardata$Torque * cardata$Horsepower
+
+y <- matrix(NA, nrow = len, ncol = 1)
+y[ ,1] <- cardata$mpg
+
+XtX <- t(X) %*% X
+XtX_inv <- solve(XtX)
+Xty <- t(X) %*% y
+beta <- XtX_inv %*% Xty
+print(beta)
+```
+
+```{r}
+coefficients <- result$coefficients
+estimate_values <- matrix(coefficients[, "Estimate"])
+print(norm(estimate_values-beta))
+```
