@@ -1,0 +1,380 @@
+---
+title: "hw3"
+format: html
+editor: visual
+---
+
+## Problem 1
+
+## a
+
+```{r}
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+install.packages("haven")
+```
+
+```{r}
+library(haven)
+vix_d <- read_xpt("VIX_D.xpt")
+head(vix_d)
+```
+
+```{r}
+demo_d <- read_xpt("demo_D.xpt")
+head(demo_d)
+```
+
+```{r}
+merged_data <- merge(vix_d, demo_d, by = "SEQN")
+
+# Print the total number of rows in the merged dataset
+total_sample_size <- nrow(merged_data)
+print(total_sample_size == 6980)
+```
+
+The size is truly 6980!
+
+## b
+
+```{r}
+head(merged_data)
+install.packages("dplyr")
+```
+
+```{r}
+install.packages("RSQLite")
+install.packages("knitr")
+install.packages("rmarkdown")
+install.packages("evaluate")
+```
+
+```{r}
+library(dplyr)
+year_bound = c(0,10,20,30,40,50,60,70,80)
+my_list = list()
+age_range = c()
+proportion = c()
+
+for(i in 1:length(year_bound)){
+  lb = year_bound[i]
+  ub = lb + 9
+  ages = paste(lb, "-", ub)
+  age_range[i] <- ages 
+  filtered_data <- merged_data %>%
+    filter(DMDHRAGE >= lb & DMDHRAGE <= ub)
+  # print(filtered_data)
+  my_list[[i]] <- filtered_data
+  
+  total_num <- nrow(filtered_data)
+  target_num <- nrow(filtered_data[filtered_data$VIQ220 == "Yes", ])
+  pro = target_num/total_num
+  proportion[i] <- pro
+}
+
+print(age_range)
+print(proportion)
+
+results <- data.frame(age_range, proportion)
+print(results)
+```
+
+```{r}
+library(knitr)
+```
+
+```{r}
+kable(results, col.names = c("Age Range", "Proportion"), caption = "Proportion of People Wearing Glasses by Age Range")
+```
+
+## c
+
+```{r}
+head(merged_data)
+
+```
+
+```{r}
+filtered_data <- merged_data %>%
+  filter(VIQ220 %in% c(2, 1)) # wear glass
+
+filtered_data <- filtered_data %>%
+  filter(RIDRETH1 %in% c(1,2,3,4,5)) #race
+
+filtered_data <- filtered_data %>%
+  filter(DMDHRGND %in% c(1,2)) # gender
+
+#DMDHRAGE age
+
+filtered_data <- filtered_data[!is.na(filtered_data$INDFMPIR), ]
+
+filtered_data$VIQ220 <- ifelse(filtered_data$VIQ220 == 2, 1, 0)
+filtered_data$DMDHRGND <- ifelse(filtered_data$DMDHRGND == 2, 1, 0)
+
+head(filtered_data)
+```
+
+```{r}
+model1 <- glm(VIQ220 ~ DMDHRAGE, data = filtered_data, family = binomial)
+print(summary(model1))
+```
+
+```{r}
+model2 <- glm(VIQ220 ~ DMDHRAGE + RIDRETH1 + DMDHRGND, data = filtered_data, family = binomial)
+print(summary(model2))
+```
+
+```{r}
+model3 <- glm(VIQ220 ~ DMDHRAGE + RIDRETH1 + DMDHRGND + INDFMPIR, data = filtered_data, family = binomial)
+print(summary(model3))
+```
+
+```{r}
+# Function to compute odds ratios and other metrics
+extract_model_info <- function(model) {
+  odds_ratios <- exp(coef(model))  # Odds ratios
+  sample_size <- length(model$fitted.values)  # Sample size
+  aic <- AIC(model)  # AIC value
+  
+  # Pseudo-R^2 (using McFadden's R^2)
+  null_deviance <- model$null.deviance
+  residual_deviance <- model$deviance
+  pseudo_r2 <- 1 - (residual_deviance / null_deviance)
+  
+  list(odds_ratios = odds_ratios, sample_size = sample_size, pseudo_r2 = pseudo_r2, aic = aic)
+}
+```
+
+```{r}
+model1_info <- extract_model_info(model1)
+model2_info <- extract_model_info(model2)
+model3_info <- extract_model_info(model3)
+summary_table <- data.frame(
+  Model = c("Model 1: Age", "Model 2: Age, Race, Gender", "Model 3: Age, Race, Gender, PIR"),
+  Sample_Size = c(model1_info$sample_size, model2_info$sample_size, model3_info$sample_size),
+  Pseudo_R2 = c(round(model1_info$pseudo_r2, 3), round(model2_info$pseudo_r2, 3), round(model3_info$pseudo_r2, 3)),
+  AIC = c(model1_info$aic, model2_info$aic, model3_info$aic)
+)
+
+# Display the table
+kable(summary_table, caption = "Logistic Regression Models: Odds Ratios, Sample Size, Pseudo-R2, and AIC")
+```
+
+## d
+
+H0: \beta\_gender = 0, H1: \beta\_gender != 0
+
+```{r}
+summary(model3)$coefficients
+```
+
+As p-value for \beta\_gender \< 0.05, so reject H0,
+
+## Problem 2
+
+## a
+
+```{r}
+install.packages("RSQLite")
+install.packages("DBI")
+```
+
+```{r}
+# Packages
+library(DBI)     # For interfacing with a database
+
+# Import the SQLite database of the Lahman data
+lahman <- dbConnect(RSQLite::SQLite(), "C:/Users/Daddy/Desktop/stats 551/Homework-for-STAST-506/sakila-sqlite3-main/sakila_master.db")
+
+##this code for testing DBI
+tables <- dbListTables(lahman)
+print(tables)
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+table <- dbGetQuery(lahman, "SELECT * FROM film")
+min_year <- min(table$release_year)
+min_year
+min_row <- which.min(table$release_year)
+min_row
+```
+
+```{r}
+query <- "SELECT COUNT(*) as count FROM film WHERE release_year ="
+result <- dbGetQuery(lahman, paste(query, min_year))
+print(result$count)
+```
+
+## b
+
+b method 1
+
+```{r}
+query = "
+SELECT category as genre, COUNT(FID) as film_count
+FROM film_list
+GROUP BY category
+"
+
+genre_count_df <- dbGetQuery(lahman, query)
+
+least_common_genre <- genre_count_df[which.min(genre_count_df$film_count), ]
+print(least_common_genre)
+
+```
+
+b method 2
+
+```{r}
+query = "
+SELECT category as genre, COUNT(FID) as film_count
+FROM film_list
+GROUP BY category
+ORDER BY film_count ASC
+LIMIT 1
+"
+
+least_common_genre <- dbGetQuery(lahman, query)
+
+print(least_common_genre)
+```
+
+The answer is Music, 281.
+
+## c
+
+c method 1
+
+```{r}
+query1 = "
+SELECT country, COUNT(ID) as customer_count
+FROM customer_list
+GROUP BY country
+ORDER BY customer_count DESC
+"
+
+count_by_country <- dbGetQuery(lahman, query1)
+count_by_country_13 <- count_by_country[count_by_country$customer_count==13, ]
+print(count_by_country_13)
+```
+
+```{r}
+query1 = "
+SELECT country, COUNT(ID) as customer_count
+FROM customer_list
+GROUP BY country
+HAVING customer_count = 13
+"
+
+count_by_country <- dbGetQuery(lahman, query1)
+count_by_country
+```
+
+The answer is Argentina and Nigeria
+
+## Problem 3
+
+## a
+
+```{r}
+us_500 <- read.csv("C:/Users/Daddy/Desktop/stats 551/Homework-for-STAST-506/us-500/us-500.csv")
+head(us_500)
+```
+
+```{r}
+com_emails <- grepl("\\.com$", us_500$email)
+com_count <- sum(com_emails)
+total_count <- nrow(us_500)
+proportion_com <- com_count / total_count
+print(proportion_com)
+```
+
+The answer is 0.732
+
+## b
+
+```{r}
+non_alphanumeric <- grepl("[^a-zA-Z0-9@.]", us_500$email)
+non_alphanumeric_count <- sum(non_alphanumeric)
+proportion_non_alphanumeric <- non_alphanumeric_count / total_count
+print(proportion_non_alphanumeric)
+```
+
+The answer is 0.248
+
+## c
+
+```{r}
+us_500$area_code_1 <- substr(us_500$phone1, 1, 3)
+us_500$area_code_2 <- substr(us_500$phone2, 1, 3)
+all_area_codes <- c(us_500$area_code_1, us_500$area_code_2)
+area_code_freq <- table(all_area_codes)
+sorted_area_codes <- sort(area_code_freq, decreasing = TRUE)
+print(sorted_area_codes[1:5])
+```
+
+The answer is 973, 212, 215, 410, 201
+
+```{r}
+us_500$apartment_number <- as.numeric(sub("^(\\d+).*", "\\1", us_500$address))
+apt_t <- table(us_500$apartment_number)
+df <- data.frame(apt_t)
+df$logVar1 <- log(as.numeric(df$Var1))
+df$Freq <- df$Freq
+
+hist(df$logVar1, 
+     breaks = 80,  # 可以根据需要调整区间数
+     main = "Histogram of Log-Transformed Apartment Numbers",
+     xlab = "Log(Apartment Number)",
+     ylab = "Frequency",
+     col = "lightblue")
+```
+
+## d
+
+```{r}
+us_500$first_digit <- floor(us_500$apartment_number / 10^(floor(log10(us_500$apartment_number))))
+digit_freq <- table(us_500$first_digit)
+
+digit_prob <- prop.table(digit_freq)
+
+
+# 计算 Benford's Law 的理论概率
+benford_prob <- log10((1:9) + 1) - log10(1:9)
+# 创建一个数据框以便比较
+comparison_df <- data.frame(
+  Digit = 1:9,
+  Empirical_Probability = as.numeric(digit_prob[1:9]),  # 从 digit_prob 中提取前 9 个概率
+  Benford_Probability = benford_prob
+)
+
+# 打印比较结果
+print(comparison_df)
+
+# 绘制柱状图以可视化比较
+barplot(t(as.matrix(comparison_df[, -1])), 
+        beside = TRUE, 
+        main = "Comparison of Empirical Probabilities and Benford's Law", 
+        xlab = "First Digit", 
+        ylab = "Probability",
+        col = c("lightblue", "salmon"),
+        names.arg = comparison_df$Digit,
+        legend = c("Empirical", "Benford's Law"))
+
+# 计算期望频率（理论频率）
+total_counts <- sum(digit_freq)
+expected_freq <- total_counts * benford_prob
+
+# 执行卡方检验
+chisq_test <- chisq.test(digit_freq, p = benford_prob)
+
+# 打印检验结果
+print(chisq_test)
+chisq_test$p.value
+if (chisq_test$p.value < 0.05){
+  print("Data not following Benford Rules!")
+} else{
+  print("Data following Benford Rules.")
+}
+```
